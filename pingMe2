@@ -1,0 +1,68 @@
+/*
+ * ron 5/29/2025
+ * Updated pingMe to work on any page being viewed (not just the default playerpageid)
+ *
+ * pingMe featured on Nick Olivo's page https://www.youtube.com/watch?v=qqCk0sKYhr4
+ * https://gist.github.com/nolivo/a84152968ea221b2003eca11c4ee5ceb
+ *
+ * Used the getPageForPlayer from code The Aaron provided in a forum
+ * https://app.roll20.net/forum/post/10653669/simulate-lightning
+ */
+
+  //ron
+  const getPageForPlayer = (playerid) => {
+    let player = getObj('player',playerid);
+
+    let psp = Campaign().get('playerspecificpages');
+    if(psp[playerid]){
+      return psp[playerid];
+    }
+
+    return Campaign().get('playerpageid');
+  };
+
+on("chat:message",function(msg){
+    if(msg.type=="api" && msg.content.indexOf("!pingMe")==0){
+        var characterList = findObjs({type:"character",controlledby:msg.playerid});
+        var playerName = getObj("player",msg.playerid).get("displayname");
+        if(characterList.length==1){
+            sendChat("PingMeAPI","!pingCharacter " + characterList[0].get("id") + " " + msg.playerid + " " + playerName);
+        }
+        else{
+            var pingList="";
+            _.each(characterList,function(character){
+                pingList+='<a href="!pingCharacter ' + character.get("id") + ' ' + msg.playerid + ' ' + playerName + '">' + character.get("name") +'</a>';
+            });
+            sendChat("PingMeAPI","/w " + playerName + " Which character?<br/>"+pingList);
+            
+        }
+    }
+});
+
+on("chat:message",function(msg){
+    if(msg.type=="api" && msg.content.indexOf("!pingCharacter")==0){
+        var args = msg.content.split(" ");
+        var characterID = args[1];
+        var playerID = args[2];
+        var playerName = args[3];
+        //ron
+        let page = getObj('page', getPageForPlayer(playerID));
+        var splitPageName = page.get('name');
+        var splitPageId = page.get('_id');
+        //sendChat("PingMeAPI","/w " + playerName + " ,  " + playerName + "\n characterID " + characterID + "\n playerID " + playerID + "\n SplitPageId " + splitPageId);
+        var playerToken = findObjs({
+            type:"graphic",
+            subtype:"token",
+            represents:characterID,
+            pageid:splitPageId
+        })[0];
+        
+        if(playerToken===undefined){
+            sendChat("PingMeAPI","/w " + playerName + " That character is not on the map.");
+            return;
+        }
+        
+        sendPing(playerToken.get("left"),playerToken.get("top"),splitPageId,playerID,true,playerID);
+
+    }
+});
